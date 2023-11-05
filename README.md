@@ -23,7 +23,7 @@ Si vous n'avez pas ces dépendances, vous pouvez les installer à l'aide de `pip
    git clone https://github.com/X1-Il/Face_detection_with_data.git
 2. Accédez au répertoire du projet :
     ```sh
-    Face_detection_with_data
+    cd Face_detection_with_data
 3. Installez les dépendances Python répertoriées dans le fichier requirements.txt :
     ```sh
     pip install -r requirements.txt
