@@ -2,7 +2,7 @@
 
 ## Description
 
-Ce projet est un système de suivi et d'extraction de visages basé sur des flux vidéo provenant de plusieurs caméras. Il utilise TensorFlow et OpenCV pour la détection des visages et le suivi en temps réel. Le système est capable de détecter et de suivre plusieurs visages dans un flux vidéo en direct, tout en extrayant des caractéristiques telles que la distance par rapport à la caméra et l'orientation du visage.
+Ce projet est un système de suivi et d'extraction de visages basé sur des flux vidéos provenant de plusieurs caméras. Il utilise TensorFlow et OpenCV pour la détection des visages et le suivi en temps réel. Le système est capable de détecter et de suivre plusieurs visages dans un flux vidéo en direct, tout en extrayant des caractéristiques telles que la distance par rapport à la caméra et l'orientation du visage.
 
 ## Getting Started
 
