@@ -2,7 +2,7 @@
 
 ## Description
 
-Ce projet est un système de suivi et d'extraction de visages basé sur des flux vidéo provenant de plusieurs caméras. Il utilise TensorFlow et OpenCV pour la détection des visages et le suivi en temps réel. Le système est capable de détecter et de suivre plusieurs visages dans un flux vidéo en direct, tout en extrayant des caractéristiques telles que la distance par rapport à la caméra et l'orientation du visage.
+Ce projet est un système de suivi et d'extraction de visages basé sur des flux vidéos provenant de plusieurs caméras. Il utilise TensorFlow et OpenCV pour la détection des visages et le suivi en temps réel. Le système est capable de détecter et de suivre plusieurs visages dans un flux vidéo en direct, tout en extrayant des caractéristiques telles que la distance par rapport à la caméra et l'orientation du visage.
 
 ## Getting Started
 
@@ -23,7 +23,7 @@ Si vous n'avez pas ces dépendances, vous pouvez les installer à l'aide de `pip
    git clone https://github.com/X1-Il/Face_detection_with_data.git
 2. Accédez au répertoire du projet :
     ```sh
-    Face_detection_with_data
+    cd Face_detection_with_data
 3. Installez les dépendances Python répertoriées dans le fichier requirements.txt :
     ```sh
     pip install -r requirements.txt
