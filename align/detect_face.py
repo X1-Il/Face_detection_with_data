@@ -4,35 +4,27 @@ from __future__ import print_function
 
 import os
 
-# from math import floor
 import cv2
 import numpy as np
-# import tensorflow as tf
+
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 from six import string_types, iteritems
 
 
 def layer(op):
-    '''Decorator for composable network layers.'''
 
     def layer_decorated(self, *args, **kwargs):
-        # Automatically set a name if not provided.
         name = kwargs.setdefault('name', self.get_unique_name(op.__name__))
-        # Figure out the layer inputs.
         if len(self.terminals) == 0:
             raise RuntimeError('No input variables found for layer %s.' % name)
         elif len(self.terminals) == 1:
             layer_input = self.terminals[0]
         else:
             layer_input = list(self.terminals)
-        # Perform the operation and get the output.
         layer_output = op(self, layer_input, *args, **kwargs)
-        # Add to layer LUT.
         self.layers[name] = layer_output
-        # This output is now the input for the next layer.
         self.feed(layer_output)
-        # Return self for chained calls.
         return self
 
     return layer_decorated
@@ -40,28 +32,19 @@ def layer(op):
 
 class Network(object):
     def __init__(self, inputs, trainable=True):
-        # The input nodes for this network
         self.inputs = inputs
-        # The current list of terminal nodes
         self.terminals = []
-        # Mapping from layer names to layers
         self.layers = dict(inputs)
-        # If true, the resulting variables are set as trainable
         self.trainable = trainable
 
         self.setup()
 
     def setup(self):
-        '''Construct the network. '''
         raise NotImplementedError('Must be implemented by the subclass.')
 
     def load(self, data_path, session, ignore_missing=False):
-        '''Load network weights.
-        data_path: The path to the numpy-serialized network weights
-        session: The current TensorFlow session
-        ignore_missing: If true, serialized weights for missing layers are ignored.
-        '''
-        data_dict = np.load(data_path, encoding='latin1', allow_pickle=True).item()  # pylint: disable=no-member
+
+        data_dict = np.load(data_path, encoding='latin1', allow_pickle=True).item()
 
         for op_name in data_dict:
             with tf.variable_scope(op_name, reuse=True):
@@ -74,9 +57,7 @@ class Network(object):
                             raise
 
     def feed(self, *args):
-        '''Set the input(s) for the next operation by replacing the terminal nodes.
-        The arguments can be either layer names or the actual layers.
-        '''
+
         assert len(args) != 0
         self.terminals = []
         for fed_layer in args:
@@ -89,22 +70,17 @@ class Network(object):
         return self
 
     def get_output(self):
-        '''Returns the current network output.'''
         return self.terminals[-1]
 
     def get_unique_name(self, prefix):
-        '''Returns an index-suffixed unique name for the given prefix.
-        This is used for auto-generating layer names based on the type-prefix.
-        '''
+
         ident = sum(t.startswith(prefix) for t, _ in self.layers.items()) + 1
         return '%s_%d' % (prefix, ident)
 
     def make_var(self, name, shape):
-        '''Creates a new TensorFlow variable.'''
         return tf.get_variable(name, shape, trainable=self.trainable)
 
     def validate_padding(self, padding):
-        '''Verifies that the padding is one of the supported ones.'''
         assert padding in ('SAME', 'VALID')
 
     @layer
@@ -120,25 +96,18 @@ class Network(object):
              padding='SAME',
              group=1,
              biased=True):
-        # Verify that the padding is acceptable
         self.validate_padding(padding)
-        # Get the number of channels in the input
         c_i = int(inp.get_shape()[-1])
-        # Verify that the grouping parameter is valid
         assert c_i % group == 0
         assert c_o % group == 0
-        # Convolution for a given input and kernel
         convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
         with tf.variable_scope(name) as scope:
             kernel = self.make_var('weights', shape=[k_h, k_w, c_i // group, c_o])
-            # This is the common-case. Convolve the input without any further complications.
             output = convolve(inp, kernel)
-            # Add the biases
             if biased:
                 biases = self.make_var('biases', [c_o])
                 output = tf.nn.bias_add(output, biases)
             if relu:
-                # ReLU non-linearity
                 output = tf.nn.relu(output, name=scope.name)
             return output
 
@@ -164,7 +133,6 @@ class Network(object):
         with tf.variable_scope(name):
             input_shape = inp.get_shape()
             if input_shape.ndims == 4:
-                # The input is spatial. Vectorize it first.
                 dim = 1
                 for d in input_shape[1:].as_list():
                     dim *= int(d)
@@ -177,12 +145,6 @@ class Network(object):
             fc = op(feed_in, weights, biases, name=name)
             return fc
 
-    """
-    Multi dimensional softmax,
-    refer to https://github.com/tensorflow/tensorflow/issues/210
-    compute softmax along the dimension of target
-    the native softmax only supports batch_size x dimension
-    """
 
     @layer
     def softmax(self, target, axis, name=None):
@@ -195,7 +157,7 @@ class Network(object):
 
 class PNet(Network):
     def setup(self):
-        (self.feed('data')  # pylint: disable=no-value-for-parameter, no-member
+        (self.feed('data')
          .conv(3, 3, 10, 1, 1, padding='VALID', relu=False, name='conv1')
          .prelu(name='PReLU1')
          .max_pool(2, 2, 2, 2, name='pool1')
@@ -206,13 +168,13 @@ class PNet(Network):
          .conv(1, 1, 2, 1, 1, relu=False, name='conv4-1')
          .softmax(3, name='prob1'))
 
-        (self.feed('PReLU3')  # pylint: disable=no-value-for-parameter
+        (self.feed('PReLU3')
          .conv(1, 1, 4, 1, 1, relu=False, name='conv4-2'))
 
 
 class RNet(Network):
     def setup(self):
-        (self.feed('data')  # pylint: disable=no-value-for-parameter, no-member
+        (self.feed('data')
          .conv(3, 3, 28, 1, 1, padding='VALID', relu=False, name='conv1')
          .prelu(name='prelu1')
          .max_pool(3, 3, 2, 2, name='pool1')
@@ -226,13 +188,13 @@ class RNet(Network):
          .fc(2, relu=False, name='conv5-1')
          .softmax(1, name='prob1'))
 
-        (self.feed('prelu4')  # pylint: disable=no-value-for-parameter
+        (self.feed('prelu4')
          .fc(4, relu=False, name='conv5-2'))
 
 
 class ONet(Network):
     def setup(self):
-        (self.feed('data')  # pylint: disable=no-value-for-parameter, no-member
+        (self.feed('data')
          .conv(3, 3, 32, 1, 1, padding='VALID', relu=False, name='conv1')
          .prelu(name='prelu1')
          .max_pool(3, 3, 2, 2, name='pool1')
@@ -249,10 +211,10 @@ class ONet(Network):
          .fc(2, relu=False, name='conv6-1')
          .softmax(1, name='prob1'))
 
-        (self.feed('prelu5')  # pylint: disable=no-value-for-parameter
+        (self.feed('prelu5')
          .fc(4, relu=False, name='conv6-2'))
 
-        (self.feed('prelu5')  # pylint: disable=no-value-for-parameter
+        (self.feed('prelu5')
          .fc(10, relu=False, name='conv6-3'))
 
 
@@ -281,11 +243,7 @@ def create_mtcnn(sess, model_path):
 
 
 def detect_face(img, minsize, pnet, rnet, onet, threshold, factor):
-    # im: input image
-    # minsize: minimum of faces' size
-    # pnet, rnet, onet: caffemodel
-    # threshold: threshold=[th1 th2 th3], th1-3 are three steps's threshold
-    # fastresize: resize img from last scale (using in high-resolution images) if fastresize==true
+
     factor_count = 0
     total_boxes = np.empty((0, 9))
     points = np.empty(0)
@@ -294,14 +252,12 @@ def detect_face(img, minsize, pnet, rnet, onet, threshold, factor):
     minl = np.amin([h, w])
     m = 12.0 / minsize
     minl = minl * m
-    # creat scale pyramid
     scales = []
     while minl >= 12:
         scales += [m * np.power(factor, factor_count)]
         minl = minl * factor
         factor_count += 1
 
-    # first stage
     for j in range(len(scales)):
         scale = scales[j]
         hs = int(np.ceil(h * scale))
@@ -316,7 +272,6 @@ def detect_face(img, minsize, pnet, rnet, onet, threshold, factor):
 
         boxes, _ = generateBoundingBox(out1[0, :, :, 1].copy(), out0[0, :, :, :].copy(), scale, threshold[0])
 
-        # inter-scale nms
         pick = nms(boxes.copy(), 0.5, 'Union')
         if boxes.size > 0 and pick.size > 0:
             boxes = boxes[pick, :]
@@ -339,7 +294,6 @@ def detect_face(img, minsize, pnet, rnet, onet, threshold, factor):
 
     numbox = total_boxes.shape[0]
     if numbox > 0:
-        # second stage
         tempimg = np.zeros((24, 24, 3, numbox))
         for k in range(0, numbox):
             tmp = np.zeros((int(tmph[k]), int(tmpw[k]), 3))
@@ -365,7 +319,6 @@ def detect_face(img, minsize, pnet, rnet, onet, threshold, factor):
 
     numbox = total_boxes.shape[0]
     if numbox > 0:
-        # third stage
         total_boxes = np.fix(total_boxes).astype(np.int32)
         dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph = pad(total_boxes.copy(), w, h)
         tempimg = np.zeros((48, 48, 3, numbox))
@@ -403,10 +356,6 @@ def detect_face(img, minsize, pnet, rnet, onet, threshold, factor):
 
 
 def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, threshold, factor):
-    # im: input image
-    # minsize: minimum of faces' size
-    # pnet, rnet, onet: caffemodel
-    # threshold: threshold=[th1 th2 th3], th1-3 are three steps's threshold [0-1]
 
     all_scales = [None] * len(images)
     images_with_boxes = [None] * len(images)
@@ -414,7 +363,6 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
     for i in range(len(images)):
         images_with_boxes[i] = {'total_boxes': np.empty((0, 9))}
 
-    # create scale pyramid
     for index, img in enumerate(images):
         all_scales[index] = []
         h = img.shape[0]
@@ -432,13 +380,9 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
             minl = minl * factor
             factor_count += 1
 
-    # # # # # # # # # # # # #
-    # first stage - fast proposal network (pnet) to obtain face candidates
-    # # # # # # # # # # # # #
+
 
     images_obj_per_resolution = {}
-
-    # TODO: use some type of rounding to number module 8 to increase probability that pyramid images will have the same resolution across input images
 
     for index, scales in enumerate(all_scales):
         h = images[index].shape[0]
@@ -453,7 +397,7 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
 
             im_data = imresample(images[index], (hs, ws))
             im_data = (im_data - 127.5) * 0.0078125
-            img_y = np.transpose(im_data, (1, 0, 2))  # caffe uses different dimensions ordering
+            img_y = np.transpose(im_data, (1, 0, 2))
             images_obj_per_resolution[(ws, hs)].append({'scale': scale, 'image': img_y, 'index': index})
 
     for resolution in images_obj_per_resolution:
@@ -468,7 +412,6 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
 
             boxes, _ = generateBoundingBox(out1[:, :, 1].copy(), out0[:, :, :].copy(), scale, threshold[0])
 
-            # inter-scale nms
             pick = nms(boxes.copy(), 0.5, 'Union')
             if boxes.size > 0 and pick.size > 0:
                 boxes = boxes[pick, :]
@@ -509,9 +452,6 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
                 tempimg = (tempimg - 127.5) * 0.0078125
                 image_obj['rnet_input'] = np.transpose(tempimg, (3, 1, 0, 2))
 
-    # # # # # # # # # # # # #
-    # second stage - refinement of face candidates with rnet
-    # # # # # # # # # # # # #
 
     bulk_rnet_input = np.empty((0, 24, 24, 3))
     for index, image_obj in enumerate(images_with_boxes):
@@ -565,9 +505,7 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
 
         i += rnet_input_count
 
-    # # # # # # # # # # # # #
-    # third stage - further refinement and facial landmarks positions with onet
-    # # # # # # # # # # # # #
+
 
     bulk_onet_input = np.empty((0, 48, 48, 3))
     for index, image_obj in enumerate(images_with_boxes):
@@ -624,9 +562,7 @@ def bulk_detect_face(images, detection_window_size_ratio, pnet, rnet, onet, thre
     return ret
 
 
-# function [boundingbox] = bbreg(boundingbox,reg)
 def bbreg(boundingbox, reg):
-    # calibrate bounding boxes
     if reg.shape[1] == 1:
         reg = np.reshape(reg, (reg.shape[2], reg.shape[3]))
 
@@ -641,7 +577,6 @@ def bbreg(boundingbox, reg):
 
 
 def generateBoundingBox(imap, reg, scale, t):
-    # use heatmap to generate bounding boxes
     stride = 2
     cellsize = 12
 
@@ -667,7 +602,6 @@ def generateBoundingBox(imap, reg, scale, t):
     return boundingbox, reg
 
 
-# function pick = nms(boxes,threshold,type)
 def nms(boxes, threshold, method):
     if boxes.size == 0:
         return np.empty((0, 3))
@@ -701,9 +635,7 @@ def nms(boxes, threshold, method):
     return pick
 
 
-# function [dy edy dx edx y ey x ex tmpw tmph] = pad(total_boxes,w,h)
 def pad(total_boxes, w, h):
-    # compute the padding coordinates (pad the bounding boxes to square)
     tmpw = (total_boxes[:, 2] - total_boxes[:, 0] + 1).astype(np.int32)
     tmph = (total_boxes[:, 3] - total_boxes[:, 1] + 1).astype(np.int32)
     numbox = total_boxes.shape[0]
@@ -737,9 +669,7 @@ def pad(total_boxes, w, h):
     return dy, edy, dx, edx, y, ey, x, ex, tmpw, tmph
 
 
-# function [bboxA] = rerec(bboxA)
 def rerec(bboxA):
-    # convert bboxA to square
     h = bboxA[:, 3] - bboxA[:, 1]
     w = bboxA[:, 2] - bboxA[:, 0]
     l = np.maximum(w, h)
@@ -750,19 +680,7 @@ def rerec(bboxA):
 
 
 def imresample(img, sz):
-    im_data = cv2.resize(img, (sz[1], sz[0]), interpolation=cv2.INTER_AREA)  # @UndefinedVariable
+    im_data = cv2.resize(img, (sz[1], sz[0]), interpolation=cv2.INTER_AREA)
     return im_data
 
-    # This method is kept for debugging purpose
 
-#     h=img.shape[0]
-#     w=img.shape[1]
-#     hs, ws = sz
-#     dx = float(w) / ws
-#     dy = float(h) / hs
-#     im_data = np.zeros((hs,ws,3))
-#     for a1 in range(0,hs):
-#         for a2 in range(0,ws):
-#             for a3 in range(0,3):
-#                 im_data[a1,a2,a3] = img[int(floor(a1*dy)),int(floor(a2*dx)),a3]
-#     return im_data

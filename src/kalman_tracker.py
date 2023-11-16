@@ -8,7 +8,6 @@ class KalmanBoxTracker(object):
     count = 0
 
     def __init__(self, bbox):
-        # define constant velocity model
         self.kf = KalmanFilter(dim_x=7, dim_z=4)
         self.kf.F = np.array(
             [[1, 0, 0, 0, 1, 0, 0], [0, 1, 0, 0, 0, 1, 0], [0, 0, 1, 0, 0, 0, 1], [0, 0, 0, 1, 0, 0, 0],
@@ -17,7 +16,7 @@ class KalmanBoxTracker(object):
             [[1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0]])
 
         self.kf.R[2:, 2:] *= 10.
-        self.kf.P[4:, 4:] *= 1000.  # give high uncertainty to the unobservable initial velocities
+        self.kf.P[4:, 4:] *= 1000.
         self.kf.P *= 10.
         self.kf.Q[-1, -1] *= 0.01
         self.kf.Q[4:, 4:] *= 0.01
@@ -31,15 +30,12 @@ class KalmanBoxTracker(object):
         self.hit_streak = 0
         self.age = 0
 
-        self.predict_num = 0  # 解决画面中无人脸检测到时而导致的原有追踪器人像预测的漂移bug
+        self.predict_num = 0
 
-        # addtional fields
         self.face_addtional_attribute = []
 
     def update(self, bbox):
-        """
-        Updates the state vector with observed bbox.
-        """
+
         self.time_since_update = 0
         self.history = []
         self.hits += 1
@@ -51,9 +47,7 @@ class KalmanBoxTracker(object):
             self.predict_num += 1
 
     def predict(self):
-        """
-        Advances the state vector and returns the predicted bounding box estimate.
-        """
+
         if (self.kf.x[6] + self.kf.x[2]) <= 0:
             self.kf.x[6] *= 0.0
         self.kf.predict()
@@ -65,32 +59,23 @@ class KalmanBoxTracker(object):
         return self.history[-1][0]
 
     def get_state(self):
-        """
-        Returns the current bounding box estimate.
-        """
+
         return convert_x_to_bbox(self.kf.x)[0]
 
 
 def convert_bbox_to_z(bbox):
-    """
-    Takes a bounding box in the form [x1,y1,x2,y2] and returns z in the form
-      [x,y,s,r] where x,y is the centre of the box and s is the scale/area and r is
-      the aspect ratio
-    """
+
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
     x = bbox[0] + w / 2.
     y = bbox[1] + h / 2.
-    s = w * h  # scale is just area
+    s = w * h
     r = w / float(h)
     return np.array([x, y, s, r]).reshape((4, 1))
 
 
 def convert_x_to_bbox(x, score=None):
-    """
-    Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
-      [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
-    """
+
     w = np.sqrt(x[2] * x[3])
     h = x[2] / w
     if score is None:

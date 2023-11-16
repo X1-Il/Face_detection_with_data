@@ -22,7 +22,7 @@ def mkdir(path):
 def save_to_file(root_dic, tracker):
     filter_face_addtional_attribute_list = []
     for item in tracker.face_addtional_attribute:
-        if item[2] < 1.4 and item[4] < 1:  # recommended thresold value
+        if item[2] < 1.4 and item[4] < 1:
             filter_face_addtional_attribute_list.append(item)
     if len(filter_face_addtional_attribute_list) > 0:
         score_reverse_sorted_list = sorted(filter_face_addtional_attribute_list, key=itemgetter(4))

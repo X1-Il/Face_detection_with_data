@@ -5,7 +5,6 @@ from time import time
 import align.detect_face as detect_face
 import cv2
 import numpy as np
-# import tensorflow as tf
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 from lib.face_utils import judge_side_face
@@ -21,19 +20,18 @@ def main():
     args = parse_args()
     output_path = args.output_path
     no_display = args.no_display
-    detect_interval = args.detect_interval  # you need to keep a balance between performance and fluency
-    margin = args.margin  # if the face is big in your video, you can set it bigger for tracking easier
-    scale_rate = args.scale_rate  # if set smaller, it will make input frames smaller
-    show_rate = args.show_rate  # if set smaller, it will display smaller frames
+    detect_interval = args.detect_interval
+    margin = args.margin
+    scale_rate = args.scale_rate
+    show_rate = args.show_rate
     face_score_threshold = args.face_score_threshold
 
     mkdir(output_path)
-    # for display
     if not no_display:
         colours = np.random.rand(32, 3)
 
-    # init tracker
-    tracker = Sort()  # create an instance of the SORT tracker
+
+    tracker = Sort()
 
     logger.info('Start track and extract......')
     with tf.Graph().as_default():
@@ -41,11 +39,11 @@ def main():
                                               log_device_placement=False)) as sess:
             pnet, rnet, onet = detect_face.create_mtcnn(sess, os.path.join(project_dir, "align"))
 
-            minsize = 40  # minimum size of the face for mtcnn to detect
-            threshold = [0.6, 0.7, 0.7]  # three steps' threshold
-            factor = 0.709  # scale factor
+            minsize = 40
+            threshold = [0.6, 0.7, 0.7]
+            factor = 0.709
 
-            # Afficher toutes les webcams disponibles
+
             index = 0
             while True:
                 cap = cv2.VideoCapture(index)
@@ -56,7 +54,7 @@ def main():
                 cap.release()
                 index += 1
 
-            cam = cv2.VideoCapture(0)  # Change to the webcam feed with the appropriate index
+            cam = cv2.VideoCapture(0)
 
             c = 0
             while True:
@@ -76,7 +74,7 @@ def main():
                     img_size = np.asarray(frame.shape)[0:2]
                     mtcnn_starttime = time()
                     faces, points = detect_face.detect_face(r_g_b_frame, minsize, pnet, rnet, onet, threshold, factor)
-                    logger.info("MTCNN detect face cost time : {} s".format(round(time() - mtcnn_starttime, 3)))  # mtcnn detect, slow
+                    logger.info("MTCNN detect face cost time : {} s".format(round(time() - mtcnn_starttime, 3)))
                     face_sums = faces.shape[0]
                     if face_sums > 0:
                         face_list = []
@@ -85,17 +83,17 @@ def main():
                             if score > face_score_threshold:
                                 det = np.squeeze(faces[i, 0:4])
 
-                                # face rectangle
+
                                 det[0] = np.maximum(det[0] - margin, 0)
                                 det[1] = np.maximum(det[1] - margin, 0)
                                 det[2] = np.minimum(det[2] + margin, img_size[1])
                                 det[3] = np.minimum(det[3] + margin, img_size[0])
                                 face_list.append(item)
 
-                                # face cropped
+
                                 bb = np.array(det, dtype=np.int32)
 
-                                # use 5 face landmarks to judge whether the face is front or side
+
                                 squeeze_points = np.squeeze(points[:, i])
                                 tolist = squeeze_points.tolist()
                                 facial_landmarks = []
@@ -109,7 +107,7 @@ def main():
 
                                 dist_rate, high_ratio_variance, width_rate = judge_side_face(np.array(facial_landmarks))
 
-                                # face additional attribute (index 0: face score; index 1: 0 represents a front face and 1 for a side face)
+
                                 item_list = [cropped, score, dist_rate, high_ratio_variance, width_rate]
                                 addtional_attribute_list.append(item_list)
 
@@ -139,7 +137,7 @@ def main():
 
 
 def parse_args():
-    """Parse input arguments."""
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_path", type=str, help='Path to save face', default='facepics')
     parser.add_argument('--detect_interval', help='how many frames to make a detection', type=int, default=1)
